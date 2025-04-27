@@ -65,48 +65,57 @@ stages:
   displayName: 'Deploy to IIS'
   dependsOn: Build
   jobs:
-  - job: DeployJob
-    displayName: 'Deploy Job'
-    pool:
-      name: 'Default'
+    - job: DeployJob
+      displayName: 'Deploy Job'
+      pool:
+        name: 'Default'  # Replace with your self-hosted agent pool name if needed
 
-    steps:
-    - download: current
-      artifact: drop
+      steps:
+        - download: current
+          artifact: drop
 
-    - task: PowerShell@2
-      displayName: 'Deploy to IIS'
-      inputs:
-        targetType: 'inline'
-        script: |
-          $WebAppPath = 'C:\inetpub\wwwroot'
-          $SiteName = 'Default Web Site'            
-          $SourcePath = "$(Pipeline.Workspace)\drop"  
+        - task: PowerShell@2
+          displayName: 'Deploy to IIS'
+          inputs:
+            targetType: 'inline'
+            script: |
+              $WebAppPath = 'C:\inetpub\wwwroot'
+              $SiteName = 'Default Web Site'            
+              $SourcePath = "$(Pipeline.Workspace)\drop"  
 
-          Write-Output "Stopping IIS website: $SiteName"
-          Import-Module WebAdministration
+              Write-Output "Stopping IIS website: $SiteName"
+              Import-Module WebAdministration
 
-          # Check if site exists before stopping
-          if (Test-Path "IIS:\Sites\$SiteName") {
-              Stop-Website -Name $SiteName
-              Write-Output "Website $SiteName stopped successfully."
-          } else {
-              Write-Output "Website $SiteName not found. Skipping stop."
-          }
+              # Check if site exists before stopping
+              if (Test-Path "IIS:\Sites\$SiteName") {
+                  Stop-Website -Name $SiteName
+                  Write-Output "Website $SiteName stopped successfully."
+              } else {
+                  Write-Output "Website $SiteName not found. Skipping stop."
+              }
 
-          # Clean old files in the web app path (if any)
-          Write-Output "Cleaning old files in: $WebAppPath"
-          Remove-Item "$WebAppPath\*" -Recurse -Force -ErrorAction SilentlyContinue
+              # Clean old files in the web app path (if any)
+              Write-Output "Cleaning old files in: $WebAppPath"
+              Remove-Item "$WebAppPath\*" -Recurse -Force -ErrorAction SilentlyContinue
 
-          # Copy the new published files
-          Write-Output "Copying new files to: $WebAppPath"
-          Copy-Item "$SourcePath\*" -Destination $WebAppPath -Recurse
+              # Copy the new published files
+              Write-Output "Copying new files to: $WebAppPath"
+              Copy-Item "$SourcePath\*" -Destination $WebAppPath -Recurse
 
-          # Start the IIS website again
-          Write-Output "Starting website: $SiteName"
-          if (Test-Path "IIS:\Sites\$SiteName") {
-              Start-Website -Name $SiteName
-              Write-Output "Website $SiteName started successfully."
-          } else {
-              Write-Output "Website $SiteName does not exist. Deployment completed, but website not found."
-          }
+              # Find and copy the site.js from the js folder
+              $JsFolderPath = "$SourcePath\js\site.js"
+              if (Test-Path $JsFolderPath) {
+                  Write-Output "Found site.js. Deploying it to $WebAppPath"
+                  Copy-Item $JsFolderPath -Destination "$WebAppPath\site.js" -Force
+              } else {
+                  Write-Output "site.js not found in $JsFolderPath. Skipping deployment."
+              }
+
+              # Start the IIS website again
+              Write-Output "Starting website: $SiteName"
+              if (Test-Path "IIS:\Sites\$SiteName") {
+                  Start-Website -Name $SiteName
+                  Write-Output "Website $SiteName started successfully."
+              } else {
+                  Write-Output "Website $SiteName does not exist. Deployment completed, but website not found."
+              }
