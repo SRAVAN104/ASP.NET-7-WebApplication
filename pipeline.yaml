@@ -1,160 +1,51 @@
-# trigger:
-#   - main
-
-# pool:
-#   vmImage: 'ubuntu-latest'
-
-# variables:
-#   buildConfiguration: 'Release'
-#   outputDir: '$(Build.ArtifactStagingDirectory)/publish'
-
-# steps:
-# - task: UseDotNet@2
-#   inputs:
-#     packageType: 'sdk'
-#     version: '7.0.x'
-#     installationPath: $(Agent.ToolsDirectory)/dotnet
-
-# - task: DotNetCoreCLI@2
-#   displayName: 'Restore Nuget Package'
-#   inputs:
-#     command: 'restore'
-#     projects: '**/*.csproj'
-
-# - task: DotNetCoreCLI@2
-#   displayName: 'Build Project'
-#   inputs:
-#     command: 'build'
-#     projects: '**/*.csproj'
-#     arguments: '--configuration $(buildConfiguration)'
-
-# - task: DotNetCoreCLI@2
-#   displayName: 'Publish Project'
-#   inputs:
-#     command: 'publish'
-#     publishWebProjects: true
-#     arguments: '--configuration $(buildConfiguration) --output $(outputDir)'
-#     zipAfterPublish: false
-
-# - task: CopyFiles@2
-#   displayName: 'Copy Additional Files'
-#   inputs:
-#     SourceFolder: '$(Build.SourcesDirectory)'
-#     Contents: '**/*.json'
-#     TargetFolder: '$(outputDir)'
-
-# - task: PublishBuildArtifacts@1
-#   displayName: 'Publish Artifact'
-#   inputs:
-#     PathtoPublish: '$(outputDir)'
-#     ArtifactName: 'drop'
-#     publishLocation: 'Container'
-
 trigger:
   - main
+
+pool:
+  vmImage: 'windows-latest'
 
 variables:
   buildConfiguration: 'Release'
   outputDir: '$(Build.ArtifactStagingDirectory)/publish'
-  webAppPath: 'C:\inetpub\wwwroot\MyApp'
-  siteName: 'MyApp'
 
-stages:
-- stage: Build
-  displayName: 'Build Stage'
-  jobs:
-  - job: BuildJob
-    displayName: 'Build Job'
-    pool:
-      vmImage: 'ubuntu-latest'
+steps:
+- task: UseDotNet@2
+  inputs:
+    packageType: 'sdk'
+    version: '7.0.x'
+    installationPath: $(Agent.ToolsDirectory)/dotnet
 
-    steps:
-    - task: UseDotNet@2
-      inputs:
-        packageType: 'sdk'
-        version: '7.0.x'
-        installationPath: $(Agent.ToolsDirectory)/dotnet
+- task: DotNetCoreCLI@2
+  displayName: 'Restore Nuget Package'
+  inputs:
+    command: 'restore'
+    projects: '**/*.csproj'
 
-    - task: DotNetCoreCLI@2
-      displayName: 'Restore Nuget Packages'
-      inputs:
-        command: 'restore'
-        projects: '**/*.csproj'
+- task: DotNetCoreCLI@2
+  displayName: 'Build Project'
+  inputs:
+    command: 'build'
+    projects: '**/*.csproj'
+    arguments: '--configuration $(buildConfiguration)'
 
-    - task: DotNetCoreCLI@2
-      displayName: 'Build Project'
-      inputs:
-        command: 'build'
-        projects: '**/*.csproj'
-        arguments: '--configuration $(buildConfiguration)'
+- task: DotNetCoreCLI@2
+  displayName: 'Publish Project'
+  inputs:
+    command: 'publish'
+    publishWebProjects: true
+    arguments: '--configuration $(buildConfiguration) --output $(outputDir)'
+    zipAfterPublish: false
 
-    - task: DotNetCoreCLI@2
-      displayName: 'Publish Project'
-      inputs:
-        command: 'publish'
-        publishWebProjects: true
-        arguments: '--configuration $(buildConfiguration) --output $(outputDir)'
-        zipAfterPublish: false
+- task: CopyFiles@2
+  displayName: 'Copy Additional Files'
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)'
+    Contents: '**/*.json'
+    TargetFolder: '$(outputDir)'
 
-    - task: CopyFiles@2
-      displayName: 'Copy Additional Files'
-      inputs:
-        SourceFolder: '$(Build.SourcesDirectory)'
-        Contents: '**/*.json'
-        TargetFolder: '$(outputDir)'
-
-    - task: PublishBuildArtifacts@1
-      displayName: 'Publish Artifact'
-      inputs:
-        PathtoPublish: '$(outputDir)'
-        ArtifactName: 'drop'
-        publishLocation: 'Container'
-
-- stage: Deploy
-  displayName: 'Deploy Stage'
-  dependsOn: Build
-  jobs:
-  - job: DeployJob
-    displayName: 'Deploy Job'
-    pool:
-      name: 'Default'
-
-    steps:
-    - download: current
-      artifact: drop
-
-    - task: PowerShell@2
-      displayName: 'Deploy to IIS'
-      inputs:
-        targetType: 'inline'
-        script: |
-          $WebAppPath = "$(webAppPath)"
-          $SiteName = "$(siteName)"
-          $SourcePath = "$(Pipeline.Workspace)\drop"
-
-          Import-Module WebAdministration
-
-          if (Test-Path "IIS:\Sites\$SiteName") {
-              Write-Output "Stopping website: $SiteName"
-              Stop-Website -Name $SiteName
-          } else {
-              Write-Output "Website $SiteName does not exist. Skipping stop."
-          }
-
-          if (!(Test-Path $WebAppPath)) {
-              Write-Output "WebAppPath $WebAppPath does not exist. Creating..."
-              New-Item -Path $WebAppPath -ItemType Directory
-          }
-
-          Write-Output "Cleaning old files in: $WebAppPath"
-          Remove-Item "$WebAppPath\*" -Recurse -Force -ErrorAction SilentlyContinue
-
-          Write-Output "Copying new files to: $WebAppPath"
-          Copy-Item "$SourcePath\*" -Destination $WebAppPath -Recurse
-
-          if (Test-Path "IIS:\Sites\$SiteName") {
-              Write-Output "Starting website: $SiteName"
-              Start-Website -Name $SiteName
-          } else {
-              Write-Output "Website $SiteName does not exist to start. Deployment only copied files."
-          }
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact'
+  inputs:
+    PathtoPublish: '$(outputDir)'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
