@@ -132,9 +132,19 @@ stages:
           $SiteName = "$(siteName)"
           $SourcePath = "$(Pipeline.Workspace)\drop"
 
-          Write-Output "Stopping website: $SiteName"
           Import-Module WebAdministration
-          Stop-Website -Name $SiteName
+
+          if (Test-Path "IIS:\Sites\$SiteName") {
+              Write-Output "Stopping website: $SiteName"
+              Stop-Website -Name $SiteName
+          } else {
+              Write-Output "Website $SiteName does not exist. Skipping stop."
+          }
+
+          if (!(Test-Path $WebAppPath)) {
+              Write-Output "WebAppPath $WebAppPath does not exist. Creating..."
+              New-Item -Path $WebAppPath -ItemType Directory
+          }
 
           Write-Output "Cleaning old files in: $WebAppPath"
           Remove-Item "$WebAppPath\*" -Recurse -Force -ErrorAction SilentlyContinue
@@ -142,6 +152,9 @@ stages:
           Write-Output "Copying new files to: $WebAppPath"
           Copy-Item "$SourcePath\*" -Destination $WebAppPath -Recurse
 
-          Write-Output "Starting website: $SiteName"
-          Start-Website -Name $SiteName
-
+          if (Test-Path "IIS:\Sites\$SiteName") {
+              Write-Output "Starting website: $SiteName"
+              Start-Website -Name $SiteName
+          } else {
+              Write-Output "Website $SiteName does not exist to start. Deployment only copied files."
+          }
