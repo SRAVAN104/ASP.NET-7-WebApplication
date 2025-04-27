@@ -50,6 +50,7 @@ steps:
     ArtifactName: 'drop'
     publishLocation: 'Container'
 
+stages:
 - stage: Deploy
   displayName: 'Deploy to IIS'
   dependsOn: Build
