@@ -8,49 +8,59 @@ variables:
   buildConfiguration: 'Release'
   outputDir: '$(Build.ArtifactStagingDirectory)/publish'
 
-steps:
-- task: UseDotNet@2
-  inputs:
-    packageType: 'sdk'
-    version: '7.0.x'
-    installationPath: $(Agent.ToolsDirectory)/dotnet
-
-- task: DotNetCoreCLI@2
-  displayName: 'Restore Nuget Package'
-  inputs:
-    command: 'restore'
-    projects: '**/*.csproj'
-
-- task: DotNetCoreCLI@2
-  displayName: 'Build Project'
-  inputs:
-    command: 'build'
-    projects: '**/*.csproj'
-    arguments: '--configuration $(buildConfiguration)'
-
-- task: DotNetCoreCLI@2
-  displayName: 'Publish Project'
-  inputs:
-    command: 'publish'
-    publishWebProjects: true
-    arguments: '--configuration $(buildConfiguration) --output $(outputDir)'
-    zipAfterPublish: false
-
-- task: CopyFiles@2
-  displayName: 'Copy Additional Files'
-  inputs:
-    SourceFolder: '$(Build.SourcesDirectory)'
-    Contents: '**/*.json'
-    TargetFolder: '$(outputDir)'
-
-- task: PublishBuildArtifacts@1
-  displayName: 'Publish Artifact'
-  inputs:
-    PathtoPublish: '$(outputDir)'
-    ArtifactName: 'drop'
-    publishLocation: 'Container'
-
+# Build Stage
 stages:
+- stage: Build
+  displayName: 'Build Stage'
+  jobs:
+  - job: BuildJob
+    displayName: 'Build Job'
+    pool:
+      vmImage: 'windows-latest'
+
+    steps:
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '7.0.x'
+        installationPath: $(Agent.ToolsDirectory)/dotnet
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore Nuget Package'
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Build Project'
+      inputs:
+        command: 'build'
+        projects: '**/*.csproj'
+        arguments: '--configuration $(buildConfiguration)'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish Project'
+      inputs:
+        command: 'publish'
+        publishWebProjects: true
+        arguments: '--configuration $(buildConfiguration) --output $(outputDir)'
+        zipAfterPublish: false
+
+    - task: CopyFiles@2
+      displayName: 'Copy Additional Files'
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)'
+        Contents: '**/*.json'
+        TargetFolder: '$(outputDir)'
+
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifact'
+      inputs:
+        PathtoPublish: '$(outputDir)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+# Deploy Stage
 - stage: Deploy
   displayName: 'Deploy to IIS'
   dependsOn: Build
@@ -58,7 +68,7 @@ stages:
   - job: DeployJob
     displayName: 'Deploy Job'
     pool:
-      name: 'Default'  # Replace with your self-hosted agent pool name if needed
+      name: 'Default'
 
     steps:
     - download: current
@@ -100,4 +110,3 @@ stages:
           } else {
               Write-Output "Website $SiteName does not exist. Deployment completed, but website not found."
           }
-
