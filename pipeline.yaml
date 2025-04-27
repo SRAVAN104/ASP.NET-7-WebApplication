@@ -1,0 +1,42 @@
+trigger:
+  - main
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
+steps:
+- task: UseDotNet@2
+  inputs:
+    packageType: 'sdk'
+    version: '7.0.x'
+    installationPath: $(Agent.ToolsDirectory)/dotnet
+
+- task: DotNetCoreCLI@2
+  displayName: 'Restore Nuget Package'
+  inputs:
+    command: 'restore'
+    projects: 'ASP.NET-7-WebApplication/WebApplicationLogin/WebApplicationLogin.csproj'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Run tests'
+  inputs:
+    command: 'test'
+    projects: 'ASP.NET-7-WebApplication/WebApplicationLogin/WebApplicationLogin.csproj'
+    arguments: '--configuration $(buildConfiguration) --no-build --verbosity normal'
+
+- task: CopyFiles@2
+  displayName: 'Copy Additional Files'
+  inputs:
+    SourceFolder: '$(Build.SourceDirectory)'
+    Contents: '**/*.json'
+    TargetFolder: '($outputDir)'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact'
+  inputs:
+    PathtoPublish: '$($outputDir)'
+    ArtifactName: 'drop'
+    PublishLocation: 'Container'
+
